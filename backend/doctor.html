@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nearby Healthcare Finder</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div class="container">
+        <br><br>
+        <h1 class="text-center">Nearby Healthcare Finder</h1>
+
+        <div class="input-group mb-2">
+            <input type="text" id="autocomplete" class="form-control" placeholder="Enter Location" />
+            <button class="btn btn-outline-secondary" onclick="useMyLocation()">📍</button>
+        </div>
+        <small class="text-muted">Click 📍 to use your current location</small>
+
+        <div class="form-group mt-3">
+            <label for="type">Select type of healthcare service:</label>
+            <select id="type" class="form-control">
+                <option value="healthcare.hospital">Hospital</option>
+                <option value="healthcare.clinic_or_praxis">Clinic</option>
+                <option value="healthcare.pharmacy">Pharmacy</option>
+                <option value="healthcare.dentist">Dentist</option>
+                <option value="healthcare.clinic_or_praxis.gynaecology">Gynaecology</option>
+                <option value="healthcare.clinic_or_praxis.cardiology">Cardiology</option>
+                <option value="healthcare.clinic_or_praxis.orthopaedics">Orthopaedics</option>
+                <option value="healthcare.clinic_or_praxis.paediatrics">Paediatrics</option>
+                <option value="healthcare.dentist.orthodontics">Orthodontics</option>
+            </select>
+        </div>
+
+        <button class="btn btn-primary mt-3" onclick="findPlaces()">Find Nearby Places</button>
+        <div id="places" class="row mt-4 g-3"></div>
+    </div>
+
+    <!-- ✅ Booking Form Modal -->
+    <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="bookingForm" onsubmit="submitBooking(event)">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="bookingModalLabel">Book Appointment at <span
+                                id="placeNameLabel"></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body row g-3">
+                        <input type="hidden" id="placeNameInput" name="place" />
+                        <div class="col-md-6">
+                            <label for="userName" class="form-label">Full Name</label>
+                            <input type="text" id="userName" class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="userEmail" class="form-label">Email</label>
+                            <input type="email" id="userEmail" class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="userPhone" class="form-label">Phone Number</label>
+                            <input type="tel" id="userPhone" class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="appointmentDate" class="form-label">Preferred Date & Time</label>
+                            <input type="datetime-local" id="appointmentDate" class="form-control" required />
+                        </div>
+                        <div class="col-12">
+                            <label for="userSymptoms" class="form-label">Symptoms / Notes</label>
+                            <textarea id="userSymptoms" class="form-control" rows="3" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-success">Submit Booking</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const geoapifyKey = '7ae563c90ecd437f9a9760c15ab9470e'; // 🔁 Replace with your actual Geoapify API key
+
+        const fallbackCategories = {
+            "healthcare.clinic_or_praxis.gynaecology": "healthcare.clinic_or_praxis",
+            "healthcare.clinic_or_praxis.cardiology": "healthcare.clinic_or_praxis",
+            "healthcare.clinic_or_praxis.orthopaedics": "healthcare.clinic_or_praxis",
+            "healthcare.clinic_or_praxis.paediatrics": "healthcare.clinic_or_praxis",
+            "healthcare.dentist.orthodontics": "healthcare.dentist",
+        };
+
+        async function useMyLocation() {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                const geoUrl = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${geoapifyKey}`;
+                const geoRes = await fetch(geoUrl);
+                const geoData = await geoRes.json();
+
+                if (geoData?.features?.[0]?.properties?.formatted) {
+                    document.getElementById("autocomplete").value = geoData.features[0].properties.formatted;
+                } else {
+                    alert("Unable to retrieve address.");
+                }
+
+                findPlaces(lat, lon);
+            }, (error) => {
+                alert("Unable to retrieve your location.");
+                console.error("Geolocation error:", error);
+            });
+        }
+
+        async function findPlaces(passedLat = null, passedLon = null) {
+            const location = document.getElementById('autocomplete').value;
+            const userCategory = document.getElementById('type').value;
+            const resultBody = document.getElementById('places');
+            resultBody.innerHTML = '';
+
+            if (!location && !passedLat && !passedLon) {
+                alert('Please enter a location or use your current location.');
+                return;
+            }
+
+            try {
+                let lat, lon;
+
+                if (passedLat && passedLon) {
+                    lat = passedLat;
+                    lon = passedLon;
+                } else {
+                    const geoUrl = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(location)}&apiKey=${geoapifyKey}`;
+                    const geoRes = await fetch(geoUrl);
+                    const geoData = await geoRes.json();
+                    if (!geoData?.features?.length) {
+                        alert('Location not found.');
+                        return;
+                    }
+                    [lon, lat] = geoData.features[0].geometry.coordinates;
+                }
+
+                const radius = 2000;
+                let data = await fetchPlaces(lat, lon, userCategory);
+
+                if (!data?.features?.length && fallbackCategories[userCategory]) {
+                    data = await fetchPlaces(lat, lon, fallbackCategories[userCategory]);
+                }
+
+                if (!data?.features?.length) {
+                    resultBody.innerHTML = `<div class="col-12 text-center"><p>No nearby places found.</p></div>`;
+                    return;
+                }
+
+                data.features.forEach(place => {
+                    const props = place.properties;
+                    const name = props.name || "Unnamed Place";
+                    const card = document.createElement('div');
+                    card.className = 'col-md-6 col-lg-4';
+                    card.innerHTML = `
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <h5 class="card-title">${name}</h5>
+                <p class="card-text"><strong>Address:</strong> ${props.formatted || "N/A"}</p>
+                <p class="card-text"><small class="text-muted">Lat: ${place.geometry.coordinates[1]}, Lon: ${place.geometry.coordinates[0]}</small></p>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary w-50" onclick="openBookingForm('${name.replace(/'/g, "\\'")}')">Book Appointment</button>
+                  <button class="btn btn-outline-secondary w-50">Contact</button>
+                </div>
+              </div>
+            </div>
+          `;
+                    resultBody.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error("Error occurred:", error);
+                alert('Something went wrong. Check console for details.');
+            }
+        }
+
+        async function fetchPlaces(lat, lon, category) {
+            const radius = 2000;
+            const url = `https://api.geoapify.com/v2/places?categories=${category}&filter=circle:${lon},${lat},${radius}&bias=proximity:${lon},${lat}&limit=10&apiKey=${geoapifyKey}`;
+            const res = await fetch(url);
+            return await res.json();
+        }
+
+        function openBookingForm(placeName) {
+            document.getElementById("placeNameLabel").innerText = placeName;
+            document.getElementById("placeNameInput").value = placeName;
+            document.getElementById("bookingForm").reset();
+            const modal = new bootstrap.Modal(document.getElementById("bookingModal"));
+            modal.show();
+        }
+
+        function submitBooking(event) {
+            event.preventDefault();
+            const bookingData = {
+                place: document.getElementById("placeNameInput").value,
+                name: document.getElementById("userName").value,
+                email: document.getElementById("userEmail").value,
+                phone: document.getElementById("userPhone").value,
+                datetime: document.getElementById("appointmentDate").value,
+                symptoms: document.getElementById("userSymptoms").value
+            };
+
+            console.log("Booking Submitted:", bookingData);
+            alert("Appointment booked successfully at " + bookingData.place + "!");
+            bootstrap.Modal.getInstance(document.getElementById("bookingModal")).hide();
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

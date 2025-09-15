@@ -1,0 +1,81 @@
+# Node.js dependencies and build output
+node_modules/
+dist/
+build/
+.npm/
+.eslintcache
+.yarn/
+.yarn-integrity
+.pnp.*
+*.tgz
+
+# Python virtual environments and cache
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Logs and runtime files
+logs/
+*.log
+*.out
+*.pid
+*.seed
+*.pid.lock
+
+# Environment and secrets
+.env
+.env.*
+firestore-uploader/serviceAccountKey.json
+
+# Coverage and test output
+coverage/
+.nyc_output/
+*.lcov
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.AppleDouble
+.LSOverride
+
+# Media and large assets (add more as needed)
+medicoconnect/public/*.jpg
+medicoconnect/public/*.jpeg
+medicoconnect/public/*.png
+medicoconnect/public/*.gif
+medicoconnect/public/*.bmp
+medicoconnect/public/*.webp
+medicoconnect/public/*.avif
+medicoconnect/public/*.mp4
+medicoconnect/public/*.mp3
+medicoconnect/public/*.wav
+
+# Database and backup files
+*.db
+*.sqlite
+*.bak
+
+# Miscellaneous
+*.tmp
+*.cache
+*.coverage
+*.egg
+*.egg-info
+*.whl
+*.wheel
+
+# Firestore uploader data
+firestore-uploader/doctors.json
+
+# Remove tracked files from history if needed (run git rm --cached <file>)
